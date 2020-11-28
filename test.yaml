@@ -1,0 +1,15 @@
+project-dir:
+  includes:
+    - '/Users/momo/Desktop/workspace/php-web-v5/code-test/codescanner/src'
+  excludes:
+    - ''
+enters:
+  includes:
+    # - 'php/newapp/controllers'
+    # - 'php/app/controller'
+    - 'Application.php'
+  exludes:
+    - ''
+cache:
+  symbol-table: '/Users/momo/Desktop/workspace/php-web-v5/code-test/codescanner/.cache/test/symbol-table.cache'
+  called-relation: '/Users/momo/Desktop/workspace/php-web-v5/code-test/codescanner/.cache/test/called-relation.cache'
