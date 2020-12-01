@@ -5,8 +5,15 @@
  */
 
 require __DIR__  . '/vendor/autoload.php';
+use Symfony\Component\Console\Application;
+use CodeScanner\Command\{
+    CallerCommand,
+    DigraphCommand,
+};
 
-use \CodeScanner\Application;
+$application = new Application();
 
-$app = new Application('./test.yaml');
-$app->run();
+// ... register commands
+$application->add(new CallerCommand('caller'));
+$application->add(new DigraphCommand('digraph'));
+$application->run();

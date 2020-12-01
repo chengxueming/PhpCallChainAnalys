@@ -1,9 +1,9 @@
 <?php
 /**
  * @author cheng.xueming
- * @since  2020-11-25
+ * @since  2020-12-01
  */
-namespace CodeScanner;
+namespace CodeScanner\Command;
 
 use Symfony\Component\Finder\Finder;
 use PhpParser\{
@@ -11,8 +11,12 @@ use PhpParser\{
 };
 use Symfony\Component\Yaml\Yaml;
 use Alom\Graphviz\Digraph;
+use CodeScanner\{
+    SymbolTable,
+    CalledRelation
+};
 
-class Application {
+trait Common {
     /**
      * @var \PhpParser\Parser
      */
@@ -24,18 +28,13 @@ class Application {
 
     private $enterClasses = [];
 
-    public function __construct($configPath) {
+    public function initConfig($configPath) {
+        if(!file_exists($configPath)) {
+            throw new \InvalidArgumentException('config file ' . $configPath . ' not exists!');
+        }
         $this->parser = (new ParserFactory)->create(ParserFactory::PREFER_PHP7);
         $this->config = Yaml::parse($configPath);
     }
-
-    public function run() {
-        $this->buildSymbolTable();
-        $this->buildCalledRelation();
-        $this->drawCallChain('Application', 'run', '/Users/momo/Desktop/workspace/php-web-v5/code-test/codescanner/.cache/dot/Application::run.dot');
-        $this->drawCallChain('SymbolResolver', 'afterTraverse', '/Users/momo/Desktop/workspace/php-web-v5/code-test/codescanner/.cache/dot/SymbolResolver::afterTraverse.dot');
-    }
-
 
     public function buildSymbolTable() {
         $cacheFile = $this->config['cache']['symbol-table'] ?? '';
@@ -98,6 +97,10 @@ class Application {
             }
         }
         return $find;
+    }
+
+    public function getConfig() {
+        return $this->config;
     }
 
     public function buildCalledRelation() {
