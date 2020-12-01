@@ -183,8 +183,8 @@ class SymbolTable {
      */
     public static function dump($path) {
         $arr = [];
-        foreach (self::$resolveMap as $className => $callRelation) {
-            $arr[$className] = $callRelation->toArray();
+        foreach (self::$resolveMap as $className => $symboTable) {
+            $arr[$className] = $symboTable->toArray();
         }
         file_put_contents($path, json_encode($arr));
     }

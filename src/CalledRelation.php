@@ -196,4 +196,51 @@ class CalledRelation {
     private function log($msg, $level) {
         echo sprintf("%s:%s $level $msg" . PHP_EOL, __CLASS__, $this->className);
     }
+
+    /**
+     * 从文件中还原符号表
+     *
+     * @param $path
+     */
+    public static function load($path) {
+        $contents = file_get_contents($path);
+        $st = json_decode($contents, true);
+        foreach ($st as $className => $symbolInfo) {
+            $obj = self::getClass($className);
+            if($obj->solved) {
+                continue;
+            }
+            $obj->solved = $symbolInfo['solved'];
+            $obj->methods = $symbolInfo['methods'];
+            foreach ($symbolInfo['extents'] as $extent) {
+                $obj->addExtent(self::getClass($extent));
+            }
+        }
+    }
+
+    /**
+     * 将符号表导入到一个文件中
+     *
+     * @param $path
+     */
+    public static function dump($path) {
+        $arr = [];
+        foreach (self::$resolveMap as $className => $callRelation) {
+            $arr[$className] = $callRelation->toArray();
+        }
+        file_put_contents($path, json_encode($arr));
+    }
+
+    private function toArray() {
+        $extents = [];
+        foreach ($this->extents as $extent) {
+            $extents []= $extent->className;
+        }
+        return [
+            'className' => $this->className,
+            'solved' => $this->solved,
+            'methods' => $this->methods,
+            'extents' => $extents
+        ];
+    }
 }

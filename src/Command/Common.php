@@ -26,6 +26,10 @@ trait Common {
      */
     private $config;
 
+    private $useCache = false;
+    private $symbolCost = 0;
+    private $calledCost = 0;
+
     private $enterClasses = [];
 
     public function initConfig($configPath) {
@@ -56,6 +60,7 @@ trait Common {
                 echo 'parser '. $file . PHP_EOL;
                 SymbolTable::parser($this->parser, $file->getRealPath());
             }
+            $this->symbolCost = microtime(true) - $start;
             SymbolTable::dump($cacheFile);
         }
         foreach (SymbolTable::$resolveMap as $className => $symbolTable) {
@@ -63,8 +68,6 @@ trait Common {
                 $this->enterClasses []= $className;
             }
         }
-
-        echo "parse symbol table time cost " . (microtime(true) - $start) . PHP_EOL;
     }
 
     /**
@@ -104,15 +107,20 @@ trait Common {
     }
 
     public function buildCalledRelation() {
-        CalledRelation::setNoTraversClass($this->config['no-recursive']['class'] ?? []);
-        CalledRelation::setNoTraversDirs($this->config['no-recursive']['dirs'] ?? []);
-        foreach ($this->enterClasses as $enterClass) {
-            $filePath = SymbolTable::getClass($enterClass)->getFilePath();
-            CalledRelation::parser($this->parser, $filePath);
+        $cacheFile = $this->config['cache']['called-relation'] ?? '';
+        if(file_exists($cacheFile)) {
+            CalledRelation::load($cacheFile);
+        } else {
+            $start = microtime(true);
+            CalledRelation::setNoTraversClass($this->config['no-recursive']['class'] ?? []);
+            CalledRelation::setNoTraversDirs($this->config['no-recursive']['dirs'] ?? []);
+            foreach ($this->enterClasses as $enterClass) {
+                $filePath = SymbolTable::getClass($enterClass)->getFilePath();
+                CalledRelation::parser($this->parser, $filePath);
+            }
+            $this->calledCost = microtime(true) - $start;
+            CalledRelation::dump($cacheFile);
         }
-        //$calledEnters = [];
-        //$this->getCalledEnters('Base_Helper_Goback', 'wwwRetry', $calledEnters);
-        //print_r($calledEnters);
     }
 
     public function getCalledEnters($className, $methodName, &$calledEnters) {
