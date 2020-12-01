@@ -15,7 +15,9 @@ use Symfony\Component\Console\Input\{
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Console\Helper\TableSeparator;
-
+use CodeScanner\{
+    CalledRelation
+};
 class CallerCommand extends Command
 {
     use Common;
@@ -79,5 +81,24 @@ class CallerCommand extends Command
         // or return this if some error happened during the execution
         // (it's equivalent to returning int(1))
         // return Command::FAILURE;
+    }
+
+    public function getCalledEnters($className, $methodName, &$calledEnters) {
+        static $record = [];
+        if(isset($record[$className][$methodName])) {
+            return;
+        }
+        $record[$className][$methodName] = 1;
+        $calledClasses = CalledRelation::getCalledPosition($className, $methodName, false);
+        foreach ($calledClasses as list($calledClass, $calledMethod)) {
+            if(in_array($calledClass, $this->enterClasses)) {
+                if(!isset($calledEnters[$calledClass][$calledMethod])) {
+                    $calledEnters[$calledClass][$calledMethod] = 1;
+                } else {
+                    continue;
+                }
+            }
+            $this->getCalledEnters($calledClass, $calledMethod, $calledEnters);
+        }
     }
 }

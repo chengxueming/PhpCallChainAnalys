@@ -10,6 +10,10 @@ use Symfony\Component\Console\Input\{
     InputArgument,
 };
 use Symfony\Component\Console\Output\OutputInterface;
+use Alom\Graphviz\Digraph;
+use CodeScanner\{
+    CalledRelation
+};
 
 class DigraphCommand extends Command
 {
@@ -43,5 +47,43 @@ class DigraphCommand extends Command
         $this->drawCallChain($class, $method, $this->config['dot'] . $class . ':' . $method . '.dot');
         $output->writeln('SUCCESS!');
         return 0;
+    }
+
+    public function drawCallChain($className, $method, $path) {
+        $graph = new Digraph('G');
+        $drawedEdges = [];
+        $this->_drawCallChain($graph, $className, $method, $drawedEdges);
+        file_put_contents($path, $graph->render());
+    }
+
+    /**
+     * @param Digraph $graph
+     * @param string $className
+     * @param string $method
+     */
+    private function _drawCallChain($graph, $className, $method, &$drawedEdges) {
+        $deps = [];
+        $caller = sprintf('%s:%s', $className, $method);
+        $callRelation = CalledRelation::getClass($className);
+        foreach ($callRelation->listCalledInfo($method) as list($calledClass, $methods)) {
+            $methods = array_unique($methods);
+            foreach ($methods as $method) {
+                $callee = sprintf('%s:%s', $calledClass, $method);
+                if(!empty($drawedEdges[$caller][$callee])) {
+                    continue;
+                }
+                $graph->edge([$caller, $callee]);
+                $drawedEdges[$caller][$callee] = 1;
+                $deps[$calledClass][$method] = 1;
+            }
+        }
+        foreach($deps as $depClass => $depInfo) {
+            IF(in_array($depClass, $this->config['no-recursive']['class'] ?? [])) {
+                continue;
+            }
+            foreach($depInfo as $depMethod => $value) {
+                $this->_drawCallChain($graph, $depClass, $depMethod, $drawedEdges);
+            }
+        }
     }
 }

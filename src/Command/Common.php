@@ -10,7 +10,6 @@ use PhpParser\{
     ParserFactory
 };
 use Symfony\Component\Yaml\Yaml;
-use Alom\Graphviz\Digraph;
 use CodeScanner\{
     SymbolTable,
     CalledRelation
@@ -120,60 +119,6 @@ trait Common {
             }
             $this->calledCost = microtime(true) - $start;
             CalledRelation::dump($cacheFile);
-        }
-    }
-
-    public function getCalledEnters($className, $methodName, &$calledEnters) {
-        static $record = [];
-        if(isset($record[$className][$methodName])) {
-            return;
-        }
-        $record[$className][$methodName] = 1;
-        $calledClasses = CalledRelation::getCalledPosition($className, $methodName, false);
-        foreach ($calledClasses as list($calledClass, $calledMethod)) {
-            if(in_array($calledClass, $this->enterClasses)) {
-                if(!isset($calledEnters[$calledClass][$calledMethod])) {
-                    $calledEnters[$calledClass][$calledMethod] = 1;
-                } else {
-                    continue;
-                }
-            }
-            $this->getCalledEnters($calledClass, $calledMethod, $calledEnters);
-        }
-    }
-
-    public function drawCallChain($className, $method, $path) {
-        $graph = new Digraph('G');
-        $drawedEdges = [];
-        $this->_drawCallChain($graph, $className, $method, $drawedEdges);
-        file_put_contents($path, $graph->render());
-    }
-
-    /**
-     * @param Digraph $graph
-     * @param string $className
-     * @param string $method
-     */
-    private function _drawCallChain($graph, $className, $method, &$drawedEdges) {
-        $deps = [];
-        $caller = sprintf('%s:%s', $className, $method);
-        $callRelation = CalledRelation::getClass($className);
-        foreach ($callRelation->listCalledInfo($method) as list($calledClass, $methods)) {
-            $methods = array_unique($methods);
-            foreach ($methods as $method) {
-                $callee = sprintf('%s:%s', $calledClass, $method);
-                if(!empty($drawedEdges[$caller][$callee])) {
-                    continue;
-                }
-                $graph->edge([$caller, $callee]);
-                $drawedEdges[$caller][$callee] = 1;
-                $deps[$calledClass][$method] = 1;
-            }
-        }
-        foreach($deps as $depClass => $depInfo) {
-            foreach($depInfo as $depMethod => $value) {
-                $this->_drawCallChain($graph, $depClass, $depMethod, $drawedEdges);
-            }
         }
     }
 }
