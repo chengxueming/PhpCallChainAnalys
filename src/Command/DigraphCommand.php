@@ -24,6 +24,8 @@ class DigraphCommand extends Command
     {
         $this->addArgument('class', InputArgument::REQUIRED, '需要分析的类名')
              ->addArgument('method', InputArgument::REQUIRED, '需要分析的类的成员方法')
+             ->addOption('target_class', 'tc', InputArgument::OPTIONAL, '单条调用链的目标类名')
+             ->addOption('target_method', 'tm', InputArgument::OPTIONAL, '单条调用链的目标方法名')
              ->addOption('config', 'c', InputArgument::OPTIONAL, '配置文件', 'scan.yaml')
             // the short description shown while running "php bin/console list"
             ->setDescription('指定类和方法绘制调用链路')
@@ -44,15 +46,28 @@ class DigraphCommand extends Command
         $this->buildCalledRelation();
         $class = $input->getArgument('class');
         $method = $input->getArgument('method');
-        $this->drawCallChain($class, $method, $this->config['dot'] . $class . ':' . $method . '.dot');
+        $targetClass = $input->getOption('target_class');
+        $targetMethod = $input->getOption('target_method');
+        if(!empty($targetClass) && !empty($targetMethod)) {
+            $this->drawSingleCallChain($class, $method, $targetClass, $targetMethod, sprintf('%s%s:%s=>%s:%s.dot', $this->config['dot'], $class, $method, $targetClass, $targetMethod));
+        } else {
+            $this->drawFullyCallChain($class, $method, $this->config['dot'] . $class . ':' . $method . '.dot');
+        }
         $output->writeln('SUCCESS!');
         return 0;
     }
 
-    public function drawCallChain($className, $method, $path) {
+    public function drawFullyCallChain($className, $method, $path) {
         $graph = new Digraph('G');
         $drawedEdges = [];
-        $this->_drawCallChain($graph, $className, $method, $drawedEdges);
+        $this->_drawFullyCallChain($graph, $className, $method, $drawedEdges);
+        file_put_contents($path, $graph->render());
+    }
+
+    public function drawSingleCallChain($className, $method, $targetClass, $targetMethod, $path) {
+        $graph = new Digraph('G');
+        $drawedEdges = [];
+        $this->_drawSingleCallChain($graph, $className, $method, $targetClass, $targetMethod, $drawedEdges);
         file_put_contents($path, $graph->render());
     }
 
@@ -61,7 +76,7 @@ class DigraphCommand extends Command
      * @param string $className
      * @param string $method
      */
-    private function _drawCallChain($graph, $className, $method, &$drawedEdges) {
+    private function _drawFullyCallChain($graph, $className, $method, &$drawedEdges) {
         $deps = [];
         $caller = sprintf('%s:%s', $className, $method);
         $callRelation = CalledRelation::getClass($className);
@@ -82,8 +97,47 @@ class DigraphCommand extends Command
                 continue;
             }
             foreach($depInfo as $depMethod => $value) {
-                $this->_drawCallChain($graph, $depClass, $depMethod, $drawedEdges);
+                $this->_drawFullyCallChain($graph, $depClass, $depMethod, $drawedEdges);
             }
         }
+    }
+
+    /**
+     * @param Digraph $graph
+     * @param string $className
+     * @param string $method
+     * @param string $targetClass
+     * @param string $targetMethod
+     * @param array $drawedEdges
+     */
+    private function _drawSingleCallChain($graph, $className, $method, $targetClass, $targetMethod, &$drawedEdges) {
+        if($className == $targetClass && $method == $targetMethod) {
+            return true;
+        }
+        $deps = [];
+        $caller = sprintf('%s:%s', $className, $method);
+        $callRelation = CalledRelation::getClass($className);
+        foreach ($callRelation->listCalledInfo($method) as list($calledClass, $methods)) {
+            $methods = array_unique($methods);
+            foreach ($methods as $method) {
+                $deps[$calledClass][$method] = 1;
+            }
+        }
+        $called = false;
+        foreach($deps as $depClass => $depInfo) {
+            foreach($depInfo as $depMethod => $value) {
+                $callee = sprintf('%s:%s', $depClass, $depMethod);
+                if(!empty($drawedEdges[$caller][$callee])) {
+                    continue;
+                }
+                $drawedEdges[$caller][$callee] = 1;
+                $ret = $this->_drawSingleCallChain($graph, $depClass, $depMethod, $targetClass, $targetMethod, $drawedEdges);
+                if($ret) {
+                    $called = true;
+                    $graph->edge([$caller, $callee]);
+                }
+            }
+        }
+        return $called;
     }
 }
