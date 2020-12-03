@@ -46,7 +46,6 @@ class CallerCommand extends Command
         $method = $input->getArgument('method');
         $calledEnters = [];
         $this->getCalledEnters($class, $method, $calledEnters);
-        // print_r($calledEnters);
         $tableCells = [];
         foreach ($calledEnters as $calledClass => $calledMethods) {
             $tableCells[] = [
@@ -60,27 +59,7 @@ class CallerCommand extends Command
             ['路径', '类名', '方法名'],
             $tableCells
         );
-        //$io->definitionList(
-        //    'This is a title',
-        //    ['foo1' => 'bar1'],
-        //    ['foo2' => 'bar2'],
-        //    ['foo3' => 'bar3'],
-        //    new TableSeparator(),
-        //    'This is another title',
-        //    ['foo4' => 'bar4']
-        //);
-        // ... put here the code to run in your command
-
-        // this method must return an integer number with the "exit status code"
-        // of the command. You can also use these constants to make code more readable
-
-        // return this if there was no problem running the command
-        // (it's equivalent to returning int(0))
         return 0;
-
-        // or return this if some error happened during the execution
-        // (it's equivalent to returning int(1))
-        // return Command::FAILURE;
     }
 
     public function getCalledEnters($className, $methodName, &$calledEnters) {
