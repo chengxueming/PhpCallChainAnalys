@@ -55,3 +55,17 @@ if (!function_exists('stringAble')) {
     }
 }
 
+if (!function_exists('pathBack')) {
+    /**
+     * @param $obj
+     * @return bool
+     */
+    function pathBack($path, $back) {
+        $paths = explode('/', $path);
+        for($i = $back; $i > 0; $i--) {
+            array_pop($paths);
+        }
+        return join('/', $paths);
+    }
+}
+

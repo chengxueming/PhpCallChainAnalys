@@ -39,9 +39,9 @@ trait Common {
         $this->config = Yaml::parse($configPath);
     }
 
-    public function buildSymbolTable() {
+    public function buildSymbolTable($useCache = true) {
         $cacheFile = $this->config['cache']['symbol-table'] ?? '';
-        if(file_exists($cacheFile)) {
+        if(file_exists($cacheFile) && $useCache) {
             SymbolTable::load($cacheFile);
         } else {
             $finder = new Finder;
@@ -105,9 +105,9 @@ trait Common {
         return $this->config;
     }
 
-    public function buildCalledRelation() {
+    public function buildCalledRelation($useCache = true) {
         $cacheFile = $this->config['cache']['called-relation'] ?? '';
-        if(file_exists($cacheFile)) {
+        if(file_exists($cacheFile) && $useCache) {
             CalledRelation::load($cacheFile);
         } else {
             $start = microtime(true);
