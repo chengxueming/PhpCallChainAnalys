@@ -9,6 +9,7 @@ use Symfony\Component\Console\Application;
 use CodeScanner\Command\{
     CallerCommand,
     DigraphCommand,
+    UnusedCommand
 };
 
 $application = new Application();
@@ -16,4 +17,5 @@ $application = new Application();
 // ... register commands
 $application->add(new CallerCommand('caller'));
 $application->add(new DigraphCommand('digraph'));
+$application->add(new UnusedCommand('unused'));
 $application->run();

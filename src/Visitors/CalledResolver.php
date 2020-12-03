@@ -54,7 +54,6 @@ class CalledResolver extends NodeVisitorAbstract {
             $callRelation = CalledRelation::getClass((string)$node->name);
             if($callRelation->isSolved()) {
                 // 已经解决了 不重复处理
-                # return NodeTraverser::DONT_TRAVERSE_CURRENT_AND_CHILDREN;
                 $this->log('traverse repeat class ' . (string)$node->name, Level::WARNING);
             }
             $this->context->called_relation = $callRelation;
