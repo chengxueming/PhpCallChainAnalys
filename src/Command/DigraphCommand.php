@@ -4,6 +4,7 @@
  * @since  2020-12-01
  */
 namespace CodeScanner\Command;
+use parallel\Runtime\Error\IllegalParameter;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\{
     InputInterface,
@@ -20,6 +21,9 @@ class DigraphCommand extends Command
     // the name of the command (the part after "bin/console")
     protected static $defaultName = 'app:create-user';
     use Common;
+    const MODE_FULL = 'full';
+    const MODE_TARGET = 'target';
+    const MODE_CALLER = 'caller';
     protected function configure()
     {
         $this->addArgument('class', InputArgument::REQUIRED, '需要分析的类名')
@@ -27,6 +31,8 @@ class DigraphCommand extends Command
              ->addOption('target_class', 'tc', InputArgument::OPTIONAL, '单条调用链的目标类名')
              ->addOption('target_method', 'tm', InputArgument::OPTIONAL, '单条调用链的目标方法名')
              ->addOption('config', 'c', InputArgument::OPTIONAL, '配置文件', 'scan.yaml')
+             ->addOption('depth', 'd', InputArgument::OPTIONAL, 'mode 为 caller时表示分析的深度', 1)
+             ->addOption('mode', 'm', InputArgument::OPTIONAL, '模式 full表示一个函数的完整所有调用 target 表示一个方法到另一个方法的所有可能逻辑 需要配合 target_class 与 target_method，caller表示调用指定方法的所有方法 可以配合depth表示拓展的深度', self::MODE_FULL)
             // the short description shown while running "php bin/console list"
             ->setDescription('指定类和方法绘制调用链路')
 
@@ -46,12 +52,24 @@ class DigraphCommand extends Command
         $this->buildCalledRelation();
         $class = $input->getArgument('class');
         $method = $input->getArgument('method');
-        $targetClass = $input->getOption('target_class');
-        $targetMethod = $input->getOption('target_method');
-        if(!empty($targetClass) && !empty($targetMethod)) {
-            $this->drawSingleCallChain($class, $method, $targetClass, $targetMethod, sprintf('%s%s:%s=>%s:%s.dot', $this->config['dot'], $class, $method, $targetClass, $targetMethod));
-        } else {
-            $this->drawFullyCallChain($class, $method, $this->config['dot'] . $class . ':' . $method . '.dot');
+        $mode = $input->getOption('mode');
+        switch ($mode) {
+            case self::MODE_FULL:
+                $this->drawFullyCallChain($class, $method, $this->config['dot'] . $class . ':' . $method . '.dot');
+                break;
+            case self::MODE_TARGET:
+                $targetClass = $input->getOption('target_class');
+                $targetMethod = $input->getOption('target_method');
+                if(!empty($targetClass) && !empty($targetMethod)) {
+                    throw new \InvalidArgumentException('target_class 或者 target_method 没有指定');
+                }
+                $this->drawSingleCallChain($class, $method, $targetClass, $targetMethod, sprintf('%s%s:%s=>%s:%s.dot', $this->config['dot'], $class, $method, $targetClass, $targetMethod));
+                break;
+            case self::MODE_CALLER:
+                $maxDepth = $input->getOption('depth');
+                $path = $this->config['dot'] . $class . ':' . $method .'_caller'. '.dot';
+                $this->drawCallerCallChain($class, $method, $path, $maxDepth);
+                break;
         }
         $output->writeln('SUCCESS!');
         return 0;
@@ -139,5 +157,39 @@ class DigraphCommand extends Command
             }
         }
         return $called;
+    }
+
+    public function drawCallerCallChain($className, $method, $path, $maxDepth) {
+        $graph = new Digraph('G');
+        $drawedEdges = [];
+        $this->_drawCallerCallChain($graph, $className, $method, $drawedEdges, 0, $maxDepth);
+        file_put_contents($path, $graph->render());
+    }
+
+    /**
+     * @param Digraph $graph
+     * @param string $className
+     * @param string $method
+     */
+    private function _drawCallerCallChain($graph, $className, $method, &$drawedEdges, $depth, $maxDepth) {
+        if($depth == $maxDepth) {
+            return;
+        }
+        $callers      = [];
+        $callee       = sprintf('%s:%s', $className, $method);
+        foreach (CalledRelation::listCallerInfo($className, $method) as list($callerClass, $callerMethod)) {
+            $caller = sprintf('%s:%s', $callerClass, $callerMethod);
+            if(!empty($drawedEdges[$caller][$callee])) {
+                continue;
+            }
+            $graph->edge([$caller, $callee]);
+            $drawedEdges[$caller][$callee]        = 1;
+            $callers[$callerClass][$callerMethod] = 1;
+        }
+        foreach($callers as $callerClass => $callerInfo) {
+            foreach($callerInfo as $callerMethod => $value) {
+                $this->_drawCallerCallChain($graph, $callerClass, $callerMethod, $drawedEdges, $depth + 1, $maxDepth);
+            }
+        }
     }
 }

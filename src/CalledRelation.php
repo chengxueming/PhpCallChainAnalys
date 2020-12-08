@@ -134,6 +134,22 @@ class CalledRelation {
         }
     }
 
+    public static function listCallerInfo($className, $methodName) {
+        foreach (self::$resolveMap as $resolvedClass => $callRelation) {
+            foreach ($callRelation->methods as $resolveMethod => $calledInfo) {
+                foreach ($calledInfo as $calledClass => $calledFunctions) {
+                    if($className == $calledClass) {
+                        foreach ($calledFunctions as $calledFunction) {
+                            if($calledFunction == $methodName) {
+                                yield [$resolvedClass, $resolveMethod];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /**
      * @return bool
      */
